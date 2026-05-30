@@ -114,6 +114,7 @@ with st.sidebar:
     steps    = st.slider("Durasi Simulasi (hari)", 30, 150, 100, 10,
                          help="Panjang simulasi. 100 ≈ 1 semester")
 
+    n_runs = 30  # default
     if is_mc:
         n_runs = st.slider("Iterasi Monte Carlo", 10, 100, 40, 10,
                            help="Lebih banyak = lebih akurat, tapi lebih lambat")
@@ -215,6 +216,12 @@ def cached_mc(n_agents, steps, n_runs, ps_level, sc_level, cbt_prog,
 # ══════════════════════════════════════════════════════════════════
 if "ran" not in st.session_state:
     st.session_state.ran = False
+if "last_mode" not in st.session_state:
+    st.session_state.last_mode = is_mc
+if st.session_state.last_mode != is_mc:
+    # Mode changed — force re-run
+    st.session_state.ran = False
+    st.session_state.last_mode = is_mc
 
 params_single = (n_agents, steps, ps_level, sc_level, cbt_prog,
                  ps_reactive, net_type, gamma, lambda_base, lambda_peak, seed)
@@ -225,11 +232,18 @@ params_mc     = (n_agents, steps, n_runs if is_mc else 30,
 if run_btn or not st.session_state.ran:
     st.session_state.ran = True
     with st.spinner("⏳ Menjalankan simulasi..."):
-        model  = cached_single(*params_single)
+        st.session_state.model = cached_single(*params_single)
         if is_mc:
-            mc = cached_mc(*params_mc)
+            st.session_state.mc = cached_mc(*params_mc)
         else:
-            mc = None
+            st.session_state.mc = None
+
+if "model" not in st.session_state:
+    st.warning("⬅️ Klik **▶ Jalankan Simulasi** di sidebar untuk memulai.")
+    st.stop()
+
+model = st.session_state.model
+mc    = st.session_state.mc
 
 df   = model.get_records_df()
 t    = np.arange(len(df))
