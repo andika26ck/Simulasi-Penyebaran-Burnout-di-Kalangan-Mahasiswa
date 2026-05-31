@@ -1,18 +1,3 @@
-"""
-app.py — Dashboard Simulasi Burnout Mahasiswa
-=============================================
-Tugas Besar Pemodelan & Simulasi — UAS Minggu 16
-Topik: Simulasi Penyebaran Burnout di Kalangan Mahasiswa
-       Menggunakan Agent-Based Modeling (ABM)
-
-Cara run lokal:
-    pip install -r requirements.txt
-    streamlit run app.py
-
-Deploy ke Streamlit Cloud:
-    Push ke GitHub → connect di share.streamlit.io
-"""
-
 import math
 import numpy as np
 import pandas as pd
@@ -428,7 +413,7 @@ with tab2:
         import networkx as nx
         G = model.G
         states = model.get_agent_states()
-        burnouts = [model.agents[i].burnout for i in range(n_agents)]
+        # burnouts dict built per-state below
 
         # Layout
         if n_agents <= 60:
@@ -448,22 +433,28 @@ with tab2:
             line=dict(width=0.5, color="#cccccc"), hoverinfo="none",
         ))
 
+        # Build per-node lookup keyed by node ID (not enumerate index)
+        node_ids = list(G.nodes())
+        node_state   = {uid: model.agents[uid].state   for uid in node_ids}
+        node_burnout = {uid: model.agents[uid].burnout for uid in node_ids}
+
         for state in ["Normal","At-Risk","Burnout","Recovery"]:
-            idxs = [i for i,s in enumerate(states) if s == state]
+            idxs = [uid for uid in node_ids if node_state[uid] == state]
             if not idxs: continue
-            xs = [pos[i][0] for i in idxs]
-            ys = [pos[i][1] for i in idxs]
-            bs = [f"{burnouts[i]:.3f}" for i in idxs]
+            xs = [pos[uid][0] for uid in idxs]
+            ys = [pos[uid][1] for uid in idxs]
+            bs_val = [node_burnout[uid] for uid in idxs]
             fig_net.add_trace(go.Scatter(
                 x=xs, y=ys, mode="markers",
                 name=state,
                 marker=dict(
-                    size=[6 + burnouts[i]*14 for i in idxs],
+                    size=[6 + b*14 for b in bs_val],
                     color=STATE_COLORS[state],
                     opacity=0.85,
                     line=dict(width=1, color="white"),
                 ),
-                text=[f"Agen {i}<br>State: {state}<br>B={bs[j]}" for j,i in enumerate(idxs)],
+                text=[f"Agen {uid}<br>State: {state}<br>B={b:.3f}"
+                      for uid, b in zip(idxs, bs_val)],
                 hovertemplate="%{text}<extra></extra>",
             ))
 
@@ -677,126 +668,3 @@ with tab4:
         ],
     })
     st.dataframe(summary_df, use_container_width=True, hide_index=True)
-
-
-# ══════════════════════════════════════════════════════════════════
-# TAB 5 — TENTANG MODEL
-# ══════════════════════════════════════════════════════════════════
-with tab5:
-    col_l, col_r = st.columns([3, 2])
-
-    with col_l:
-        st.markdown("""
-        ### 🧠 Tentang Model ABM Burnout Mahasiswa
-
-        **Deskripsi Singkat**
-
-        Model ini mensimulasikan penyebaran burnout di kalangan mahasiswa menggunakan
-        pendekatan Agent-Based Modeling (ABM). Setiap agen merepresentasikan satu mahasiswa
-        dengan atribut psikologis individual dan berinteraksi melalui jaringan sosial.
-
-        ---
-
-        ### 🔢 Persamaan Utama Model
-
-        Perubahan Burnout Level per langkah waktu:
-
-        > **B(t+1) = B(t) + S(t)·V − R·[α·PS + β·SC + δ·CBT] + γ·Cs·B̄ₙ**
-
-        | Simbol | Deskripsi |
-        |--------|-----------|
-        | B(t)   | Burnout Level agen pada waktu t (0–1) |
-        | S(t)   | Stressor akademik pada waktu t |
-        | V      | Vulnerability agen (kerentanan individual) |
-        | R      | Resilience agen (ketahanan, tumbuh dengan SC+CBT) |
-        | PS     | Peer Support yang diterima dari tetangga |
-        | SC     | Efek Self-Care (selfcare_habit × sc_level) |
-        | CBT    | Efek program CBT/Mindfulness |
-        | γ      | Laju kontagion burnout antar agen |
-        | Cs     | Social susceptibility agen |
-        | B̄ₙ    | Rata-rata burnout tetangga dalam jaringan |
-
-        ---
-
-        ### 📊 State Machine Agen
-
-        ```
-        Normal (B < 0.30)
-           ↓ stressor tinggi
-        At-Risk (0.30 ≤ B < 0.60)
-           ↓ terus terekspos
-        Burnout (B ≥ 0.60)
-           ↓ intervensi aktif + help-seeking
-        Recovery (B turun bertahap)
-           ↓ B < 0.30
-        Normal ✓
-        ```
-
-        ---
-
-        ### 🏗️ Versi Pengembangan
-
-        | Versi | Minggu | Fitur Utama |
-        |-------|--------|-------------|
-        | v1 | Minggu 6  | Base model: agen, jaringan, stressor dasar |
-        | v2 | Minggu 10 | CBT, resilience dinamis, compassion fatigue |
-        | v3 | Minggu 12 | Monte Carlo runner, CI 95%, heatmap sensitivitas |
-        | Dashboard | Minggu 16 | Streamlit interaktif, visualisasi real-time |
-
-        """)
-
-    with col_r:
-        st.markdown("""
-        ### 📚 Referensi Utama
-
-        - Maslach, C., & Leiter, M.P. (2016). *Understanding the burnout experience.*
-        - Bakker, A.B. et al. (2009). *The crossover of burnout and work engagement.*
-        - Hatfield, E. et al. (1993). *Emotional Contagion.*
-        - Watts, D.J. & Strogatz, S.H. (1998). *Small-world networks.*
-        - Epstein, J.M. & Axtell, R. (1996). *Growing Artificial Societies.*
-        - Railsback, S.F. & Grimm, V. (2019). *Agent-Based Modeling.*
-
-        ---
-
-        ### ⚙️ Parameter Default
-
-        | Parameter | Nilai |
-        |-----------|-------|
-        | Agen | 80 |
-        | Durasi | 100 hari |
-        | γ (kontagion) | 0.15 |
-        | α (bobot PS) | 0.50 |
-        | β (bobot SC) | 0.30 |
-        | δ (bobot CBT) | 0.20 |
-        | Periode Ujian | Hari 38–47, 88–97 |
-
-        ---
-
-        ### 🚀 Cara Deploy
-
-        ```bash
-        # Install dependencies
-        pip install -r requirements.txt
-
-        # Run lokal
-        streamlit run app.py
-
-        # Deploy ke Streamlit Cloud:
-        # 1. Push ke GitHub
-        # 2. Buka share.streamlit.io
-        # 3. Connect repo → Deploy
-        ```
-
-        ---
-
-        ### 📝 Info Proyek
-
-        **Mata Kuliah:** Pemodelan & Simulasi
-
-        **Topik:** Simulasi Penyebaran Burnout di Kalangan
-        Mahasiswa Menggunakan Agent-Based Modeling
-
-        **Metode:** ABM + Monte Carlo
-
-        **Tools:** Python, NetworkX, Streamlit, Plotly
-        """)
