@@ -387,8 +387,9 @@ with tab2:
     with col_info:
         states = model.get_agent_states()
         state_counts = {s: states.count(s) for s in ["Normal","At-Risk","Burnout","Recovery"]}
+        n_agents_actual = len(model.agents)
         for s, cnt in state_counts.items():
-            pct = cnt / n_agents * 100
+            pct = cnt / n_agents_actual * 100
             color = STATE_COLORS[s]
             st.markdown(f"""
             <div style="background:{color}20; border-left:4px solid {color};
@@ -521,13 +522,14 @@ with tab3:
     st.markdown("---")
     st.markdown('<div class="section-header">🔎 Profil Agen: Vulnerability vs Burnout Akhir</div>', unsafe_allow_html=True)
 
+    _agent_keys = sorted(model.agents.keys())
     agent_data = pd.DataFrame({
-        "Agen"        : range(n_agents),
-        "Vulnerability": [model.agents[i].vulnerability for i in range(n_agents)],
-        "Resilience"  : [model.agents[i].resilience     for i in range(n_agents)],
-        "Burnout Akhir": [model.agents[i].burnout        for i in range(n_agents)],
-        "State"       : [model.agents[i].state           for i in range(n_agents)],
-        "Help Seeking": [model.agents[i].help_seeking    for i in range(n_agents)],
+        "Agen"        : _agent_keys,
+        "Vulnerability": [model.agents[i].vulnerability for i in _agent_keys],
+        "Resilience"  : [model.agents[i].resilience     for i in _agent_keys],
+        "Burnout Akhir": [model.agents[i].burnout        for i in _agent_keys],
+        "State"       : [model.agents[i].state           for i in _agent_keys],
+        "Help Seeking": [model.agents[i].help_seeking    for i in _agent_keys],
     })
 
     fig_sc = px.scatter(
