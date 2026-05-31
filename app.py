@@ -1,3 +1,18 @@
+"""
+app.py — Dashboard Simulasi Burnout Mahasiswa
+=============================================
+Tugas Besar Pemodelan & Simulasi — UAS Minggu 16
+Topik: Simulasi Penyebaran Burnout di Kalangan Mahasiswa
+       Menggunakan Agent-Based Modeling (ABM)
+
+Cara run lokal:
+    pip install -r requirements.txt
+    streamlit run app.py
+
+Deploy ke Streamlit Cloud:
+    Push ke GitHub → connect di share.streamlit.io
+"""
+
 import math
 import numpy as np
 import pandas as pd
@@ -585,6 +600,7 @@ with tab4:
     t_p = np.arange(steps + 1)
 
     # Ribbon burnout comparison
+    st.markdown("##### 📉 Perbandingan Rata-rata Burnout Level (mean ± CI 95%)")
     fig_cmp = go.Figure()
     for res, color in zip(presets, PRESET_COLORS):
         m, lo, hi = res["ab"]
@@ -606,12 +622,16 @@ with tab4:
     fig_cmp.add_hline(y=T_AT_RISK, line_dash="dash", line_color="#FB8C00", annotation_text="At-Risk")
     fig_cmp.add_hline(y=T_BURNOUT, line_dash="dash", line_color="#E53935", annotation_text="Burnout")
     fig_cmp.update_layout(
-        title="Perbandingan Rata-rata Burnout Level (mean ± CI 95%)",
         xaxis_title="Hari", yaxis_title="B̄",
         yaxis=dict(range=[0,1.05]),
-        height=400, template="plotly_white",
-        legend=dict(orientation="h", yanchor="bottom", y=1.02),
-        margin=dict(l=0, r=80, t=40, b=0),
+        height=420, template="plotly_white",
+        legend=dict(
+            orientation="h",
+            yanchor="top", y=-0.18,   # legend di BAWAH chart, tidak nabrak
+            xanchor="center", x=0.5,
+            font=dict(size=11),
+        ),
+        margin=dict(l=0, r=80, t=10, b=80),  # lebih banyak ruang bawah untuk legend
     )
     st.plotly_chart(fig_cmp, use_container_width=True)
 
@@ -632,9 +652,12 @@ with tab4:
             text=[f"{v:.3f}" for v in b_finals], textposition="outside",
         ))
         fig_bar.add_hline(y=T_BURNOUT, line_dash="dash", line_color="#E53935")
-        fig_bar.update_layout(title="Rata-rata Burnout Level Akhir", height=300,
-                              template="plotly_white", yaxis=dict(range=[0,1.15]),
-                              margin=dict(l=0,r=0,t=40,b=0))
+        fig_bar.update_layout(
+            title=dict(text="Rata-rata Burnout Level Akhir", font=dict(size=13)),
+            height=320, template="plotly_white",
+            yaxis=dict(range=[0,1.20]),
+            margin=dict(l=0,r=0,t=45,b=10),
+        )
         st.plotly_chart(fig_bar, use_container_width=True)
 
     with col_bar2:
@@ -645,11 +668,13 @@ with tab4:
         fig_bar2.add_trace(go.Bar(x=names_short, y=pct_norms, name="% Normal",
                                   marker_color=["#43A047"]*5, opacity=0.5,
                                   text=[f"{v:.1f}%" for v in pct_norms], textposition="outside"))
-        fig_bar2.update_layout(title="% Populasi Burnout vs Normal Akhir",
-                               barmode="group", height=300, template="plotly_white",
-                               yaxis=dict(range=[0,125]),
-                               margin=dict(l=0,r=0,t=40,b=0),
-                               legend=dict(orientation="h", yanchor="bottom", y=1.02))
+        fig_bar2.update_layout(
+            title=dict(text="% Populasi Burnout vs Normal Akhir", font=dict(size=13)),
+            barmode="group", height=320, template="plotly_white",
+            yaxis=dict(range=[0,130]),
+            margin=dict(l=0,r=0,t=45,b=50),
+            legend=dict(orientation="h", yanchor="top", y=-0.15, xanchor="center", x=0.5),
+        )
         st.plotly_chart(fig_bar2, use_container_width=True)
 
     # Summary table
@@ -670,3 +695,126 @@ with tab4:
         ],
     })
     st.dataframe(summary_df, use_container_width=True, hide_index=True)
+
+
+# ══════════════════════════════════════════════════════════════════
+# TAB 5 — TENTANG MODEL
+# ══════════════════════════════════════════════════════════════════
+with tab5:
+    col_l, col_r = st.columns([3, 2])
+
+    with col_l:
+        st.markdown("""
+        ### 🧠 Tentang Model ABM Burnout Mahasiswa
+
+        **Deskripsi Singkat**
+
+        Model ini mensimulasikan penyebaran burnout di kalangan mahasiswa menggunakan
+        pendekatan Agent-Based Modeling (ABM). Setiap agen merepresentasikan satu mahasiswa
+        dengan atribut psikologis individual dan berinteraksi melalui jaringan sosial.
+
+        ---
+
+        ### 🔢 Persamaan Utama Model
+
+        Perubahan Burnout Level per langkah waktu:
+
+        > **B(t+1) = B(t) + S(t)·V − R·[α·PS + β·SC + δ·CBT] + γ·Cs·B̄ₙ**
+
+        | Simbol | Deskripsi |
+        |--------|-----------|
+        | B(t)   | Burnout Level agen pada waktu t (0–1) |
+        | S(t)   | Stressor akademik pada waktu t |
+        | V      | Vulnerability agen (kerentanan individual) |
+        | R      | Resilience agen (ketahanan, tumbuh dengan SC+CBT) |
+        | PS     | Peer Support yang diterima dari tetangga |
+        | SC     | Efek Self-Care (selfcare_habit × sc_level) |
+        | CBT    | Efek program CBT/Mindfulness |
+        | γ      | Laju kontagion burnout antar agen |
+        | Cs     | Social susceptibility agen |
+        | B̄ₙ    | Rata-rata burnout tetangga dalam jaringan |
+
+        ---
+
+        ### 📊 State Machine Agen
+
+        ```
+        Normal (B < 0.30)
+           ↓ stressor tinggi
+        At-Risk (0.30 ≤ B < 0.60)
+           ↓ terus terekspos
+        Burnout (B ≥ 0.60)
+           ↓ intervensi aktif + help-seeking
+        Recovery (B turun bertahap)
+           ↓ B < 0.30
+        Normal ✓
+        ```
+
+        ---
+
+        ### 🏗️ Versi Pengembangan
+
+        | Versi | Minggu | Fitur Utama |
+        |-------|--------|-------------|
+        | v1 | Minggu 6  | Base model: agen, jaringan, stressor dasar |
+        | v2 | Minggu 10 | CBT, resilience dinamis, compassion fatigue |
+        | v3 | Minggu 12 | Monte Carlo runner, CI 95%, heatmap sensitivitas |
+        | Dashboard | Minggu 16 | Streamlit interaktif, visualisasi real-time |
+
+        """)
+
+    with col_r:
+        st.markdown("""
+        ### 📚 Referensi Utama
+
+        - Maslach, C., & Leiter, M.P. (2016). *Understanding the burnout experience.*
+        - Bakker, A.B. et al. (2009). *The crossover of burnout and work engagement.*
+        - Hatfield, E. et al. (1993). *Emotional Contagion.*
+        - Watts, D.J. & Strogatz, S.H. (1998). *Small-world networks.*
+        - Epstein, J.M. & Axtell, R. (1996). *Growing Artificial Societies.*
+        - Railsback, S.F. & Grimm, V. (2019). *Agent-Based Modeling.*
+
+        ---
+
+        ### ⚙️ Parameter Default
+
+        | Parameter | Nilai |
+        |-----------|-------|
+        | Agen | 80 |
+        | Durasi | 100 hari |
+        | γ (kontagion) | 0.15 |
+        | α (bobot PS) | 0.50 |
+        | β (bobot SC) | 0.30 |
+        | δ (bobot CBT) | 0.20 |
+        | Periode Ujian | Hari 38–47, 88–97 |
+
+        ---
+
+        ### 🚀 Cara Deploy
+
+        ```bash
+        # Install dependencies
+        pip install -r requirements.txt
+
+        # Run lokal
+        streamlit run app.py
+
+        # Deploy ke Streamlit Cloud:
+        # 1. Push ke GitHub
+        # 2. Buka share.streamlit.io
+        # 3. Connect repo → Deploy
+        ```
+
+        ---
+
+        ### 📝 Info Proyek
+
+        **Mata Kuliah:** Pemodelan & Simulasi
+
+        **Topik:** Simulasi Penyebaran Burnout di Kalangan
+        Mahasiswa Menggunakan Agent-Based Modeling
+
+        **Metode:** ABM + Monte Carlo
+
+        **Tools:** Python, NetworkX, Streamlit, Plotly
+        """)
